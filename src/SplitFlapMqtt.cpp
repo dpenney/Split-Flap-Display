@@ -1,7 +1,8 @@
 #include "SplitFlapMqtt.h"
+#include "SplitFlapWebServer.h"
 
 SplitFlapMqtt::SplitFlapMqtt(JsonSettings &settings, WiFiClient &wifiClient)
-    : settings(settings), wifiClient(wifiClient), mqttClient(wifiClient), display(nullptr) {}
+    : settings(settings), wifiClient(wifiClient), mqttClient(wifiClient), display(nullptr), webServer(nullptr) {}
 
 void SplitFlapMqtt::setup() {
     mqttServer = settings.getString("mqtt_server");
@@ -28,6 +29,11 @@ void SplitFlapMqtt::setup() {
         if (display) {
             float maxVel = settings.getFloat("maxVel");
             display->writeString(message, maxVel, false);
+            // Update the web server's state to prevent mode logic from overwriting
+            if (webServer) {
+                webServer->setInputString(message);      // Update input to match
+                webServer->setWrittenString(message);    // Update written to match
+            }
         }
     });
 
@@ -94,6 +100,10 @@ void SplitFlapMqtt::connectToMqtt() {
 
 void SplitFlapMqtt::setDisplay(SplitFlapDisplay *d) {
     display = d;
+}
+
+void SplitFlapMqtt::setWebServer(SplitFlapWebServer *ws) {
+    webServer = ws;
 }
 
 void SplitFlapMqtt::publishState(const String &message) {

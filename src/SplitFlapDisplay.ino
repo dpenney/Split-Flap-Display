@@ -107,6 +107,7 @@ void setup() {
         webServer.setDisplay(&display);  // Connect display to web server for dynamic updates
         splitflapMqtt.setup();
         splitflapMqtt.setDisplay(&display);
+        splitflapMqtt.setWebServer(&webServer);  // Connect web server to MQTT for state updates
         display.setMqtt(&splitflapMqtt);
 
         display.homeToString("OK");

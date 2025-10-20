@@ -6,6 +6,9 @@
 #include <PubSubClient.h>
 #include <WiFiClient.h>
 
+// Forward declaration
+class SplitFlapWebServer;
+
 class SplitFlapMqtt {
   public:
     SplitFlapMqtt(JsonSettings &settings, WiFiClient &client); // updated constructor
@@ -14,6 +17,7 @@ class SplitFlapMqtt {
     void loop();                                               // needed for PubSubClient3
     void publishState(const String &message);
     void setDisplay(SplitFlapDisplay *display);
+    void setWebServer(SplitFlapWebServer *server);
     bool isConnected();
 
   private:
@@ -22,6 +26,7 @@ class SplitFlapMqtt {
 
     JsonSettings &settings;
     SplitFlapDisplay *display;
+    SplitFlapWebServer *webServer;
 
     void connectToMqtt();
 
