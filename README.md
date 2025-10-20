@@ -19,8 +19,22 @@ Firmware for the modular Split Flap Display created by [Morgan Manly](https://gi
 - Fully configurable and controllable via Web Interface
     - Switch Between Operation Modes, modes include custom input, date mode, and time mode
     - Configure WiFi, Timezone, and hardware settings
-- MQTT Support
+    - Module calibration interface for precise alignment
+- MQTT Support with automatic reconnection
 - OTA Firmware / Filesystem updating
+
+## Recent Enhancements
+
+- **Module Calibration**: Web-based offset adjustment for precise character alignment
+- **I2C Connectivity Testing**: Diagnostic endpoint to verify module communication
+- **Improved Reliability**:
+  - Smart WiFi/MQTT reconnection with exponential backoff
+  - Stepper motor wake-up sequence for consistent performance
+  - Watchdog protection for long-running operations
+  - Enhanced error recovery with I2C communication tracking
+- **Code Quality**: Named constants, input validation, and comprehensive error logging
+
+See [ENHANCEMENTS.md](ENHANCEMENTS.md) for detailed documentation.
 
 ## Supported boards
 
