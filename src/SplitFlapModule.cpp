@@ -122,14 +122,11 @@ int SplitFlapModule::getCharPosition(char inputChar) {
 void SplitFlapModule::stop() {
     uint16_t stepState = 0b1111111111100001;
     writeIO(stepState);
-    isMotorStopped = true;
-    lastStopTime = millis();
 }
 
 void SplitFlapModule::start() {
     stepNumber = (stepNumber + 3) % 4; // effectively take one off stepNumber
     step(false);                       // write the "previous" step high again, in case turned off
-    isMotorStopped = false;
 }
 
 void SplitFlapModule::step(bool updatePosition) {
@@ -155,8 +152,6 @@ void SplitFlapModule::step(bool updatePosition) {
     if (updatePosition) {
         position = (position + 1) % stepsPerRot;
         stepNumber = (stepNumber + 1) % 4;
-        lastMovementTime = millis();
-        isMotorStopped = false;
     }
 }
 
@@ -206,24 +201,9 @@ bool SplitFlapModule::testI2CConnectivity() {
     return false;
 }
 
-bool SplitFlapModule::needsWakeUp(unsigned long idleThresholdMs) {
-    if (!isMotorStopped) {
-        return false; // Motor is currently running
-    }
-
-    unsigned long idleTime = millis() - lastStopTime;
-    return idleTime >= idleThresholdMs;
-}
-
 void SplitFlapModule::wakeUp() {
-    // Gentle wake-up sequence for motors that have been idle
+    // Gentle wake-up sequence before any movement
     // This helps overcome static friction and ensures coils are properly energized
-
-    Serial.print("Waking up module ");
-    Serial.print(address);
-    Serial.print(" (idle for ");
-    Serial.print((millis() - lastStopTime) / 1000);
-    Serial.println(" seconds)");
 
     // Step 1: Gradually energize coils with micro-steps
     // This helps overcome stiction without jerking the mechanism
@@ -256,11 +236,4 @@ void SplitFlapModule::wakeUp() {
     // Ensure current coil is at full strength
     step(false);
     delay(20);
-
-    Serial.print("Module ");
-    Serial.print(address);
-    Serial.println(" wake-up complete");
-
-    isMotorStopped = false;
-    lastMovementTime = millis();
 }

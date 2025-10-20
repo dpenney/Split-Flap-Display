@@ -16,8 +16,7 @@ class SplitFlapModule {
     void step(bool updatePosition = true);                   // step motor
     void stop();                                             // write all motor input pins to low
     void start();                                            // re-energize coils to last position, not stepping motor
-    void wakeUp();                                           // gentle wake-up sequence for motors that have been idle
-    bool needsWakeUp(unsigned long idleThresholdMs = 300000); // check if motor needs wake-up (default 5 min)
+    void wakeUp();                                           // gentle wake-up sequence before any movement
 
     int getMagnetPosition() const { return magnetPosition; } // position where magnet is detected
     int getCharPosition(char inputChar);                     // get integer position given single character
@@ -42,9 +41,6 @@ class SplitFlapModule {
     bool hasErrored = false;        // flag to indicate if an error has occurred
 
     // Motor reliability tracking
-    unsigned long lastMovementTime = 0;  // timestamp of last step
-    unsigned long lastStopTime = 0;      // timestamp when motor was stopped
-    bool isMotorStopped = true;          // track if motor is currently stopped
     int consecutiveErrors = 0;           // track I2C communication errors
 
     void writeIO(uint16_t data);    // write to motor in pins
