@@ -11,6 +11,8 @@
 #include <WiFi.h>
 #include <time.h>
 
+class SplitFlapDisplay; // Forward declaration
+
 class SplitFlapWebServer {
   public:
     SplitFlapWebServer(JsonSettings &settings);
@@ -63,12 +65,14 @@ class SplitFlapWebServer {
     int getDateCheckInterval() { return checkDateInterval; }
 
     int getCentering() { return centering; }
+    
+    void setDisplay(SplitFlapDisplay *displayPtr) { display = displayPtr; }
+    void setInputString(String input) { inputString = input; }  // Made public for mode 6
 
   private:
     JsonSettings &settings;
 
     String decodeURIComponent(String encodedString);
-    void setInputString(String input) { inputString = input; }
     void setMultiInputString(String input) { multiInputString = input; }
 
     void setMode(int targetMode);
@@ -94,4 +98,5 @@ class SplitFlapWebServer {
     unsigned long lastCheckWifiTime;
     int wifiCheckInterval;
     AsyncWebServer server; // Declare server as a class member
+    SplitFlapDisplay *display = nullptr; // Pointer to display for offset updates
 };

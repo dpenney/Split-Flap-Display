@@ -12,6 +12,28 @@
 #include <Arduino.h>
 #include <WiFiClient.h>
 
+// Include credentials if file exists (local only, not in git)
+#ifdef __has_include
+#if __has_include("credentials.h")
+#include "credentials.h"
+#define HAS_CREDENTIALS
+#endif
+#endif
+
+// Default credentials (empty - configure via web interface)
+#ifndef MQTT_SERVER
+#define MQTT_SERVER ""
+#endif
+#ifndef MQTT_PORT
+#define MQTT_PORT 1883
+#endif
+#ifndef MQTT_USER
+#define MQTT_USER ""
+#endif
+#ifndef MQTT_PASS
+#define MQTT_PASS ""
+#endif
+
 // clang-format off
 JsonSettings settings = JsonSettings("config", {
     // General Settings
@@ -24,16 +46,16 @@ JsonSettings settings = JsonSettings("config", {
     // Wifi Settings
     {"ssid", JsonSetting("")},
     {"password", JsonSetting("")},
-    // MQTT Settings
-    {"mqtt_server", JsonSetting("")},
-    {"mqtt_port", JsonSetting(1883)},
-    {"mqtt_user", JsonSetting("")},
-    {"mqtt_pass", JsonSetting("")},
+    // MQTT Settings (defaults from credentials.h or empty)
+    {"mqtt_server", JsonSetting(MQTT_SERVER)},
+    {"mqtt_port", JsonSetting(MQTT_PORT)},
+    {"mqtt_user", JsonSetting(MQTT_USER)},
+    {"mqtt_pass", JsonSetting(MQTT_PASS)},
     // Hardware Settings
     {"moduleCount", JsonSetting(8)},
     {"moduleAddresses", JsonSetting({0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27})},
     {"magnetPosition", JsonSetting(730)},
-    {"moduleOffsets", JsonSetting({0, 0, 0, 0, 0, 0, 0, 0})},
+    {"moduleOffsets", JsonSetting({0, -30, -20, 0, 0, 0, 0, 0})},
     {"displayOffset", JsonSetting(0)},
     {"sdaPin", JsonSetting(8)},
     {"sclPin", JsonSetting(9)},
@@ -68,6 +90,7 @@ void setup() {
         webServer.startWebServer();
 
         display.init();
+        webServer.setDisplay(&display);  // Connect display to web server for dynamic updates
         display.homeToString("");
 
         if (display.getNumModules() == 8) {
@@ -81,6 +104,7 @@ void setup() {
         webServer.startWebServer();
 
         display.init();
+        webServer.setDisplay(&display);  // Connect display to web server for dynamic updates
         splitflapMqtt.setup();
         splitflapMqtt.setDisplay(&display);
         display.setMqtt(&splitflapMqtt);
@@ -102,6 +126,7 @@ void loop() {
         case 3: timeMode(); break;
         case 4: break;
         case 5: randomTest(); break;
+        case 6: manualMode(); break;  // Manual mode with #home support
         default: break;
     }
 
@@ -173,6 +198,22 @@ void timeMode() {
 void randomTest() {
     display.testRandom();
     delay(2500);
+}
+
+void manualMode() {
+    String userInput = webServer.getInputString();
+    
+    // Check for #home command
+    if (userInput == "#home") {
+        Serial.println("Homing display...");
+        display.home();
+        webServer.setInputString("");  // Clear the command after execution
+        webServer.setWrittenString("");
+    } else if (userInput != webServer.getWrittenString() && userInput != "") {
+        // Normal text display
+        display.writeString(userInput, MAX_RPM, webServer.getCentering());
+        webServer.setWrittenString(userInput);
+    }
 }
 
 void checkConnection() {

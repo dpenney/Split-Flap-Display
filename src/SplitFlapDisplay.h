@@ -15,13 +15,14 @@ class SplitFlapDisplay {
     SplitFlapDisplay(JsonSettings &settings);
 
     void init();
+    void updateOffsets();  // Update offsets without full reinit
     void writeString(
         String inputString, float speed = MAX_RPM,
         bool centering = true
     );                                     // Move all modules at once to show a specific string
     void writeChar(char inputChar,
                    float speed = MAX_RPM); // sets all modules to a single char
-    void moveTo(int targetPositions[], float speed = MAX_RPM, bool releaseMotors = true);
+    void moveTo(int targetPositions[], float speed = MAX_RPM, bool releaseMotors = true, bool isHoming = false);
     void home(float speed = MAX_RPM);      // move home
     void homeToString(
         String homeString, float speed = MAX_RPM,
@@ -32,9 +33,11 @@ class SplitFlapDisplay {
     void testAll();
     void testCount();
     void testRandom(float speed = MAX_RPM);
+    void testModule(int moduleIndex, float speed = MAX_RPM); // Test single module: A -> 0 -> blank
     int getNumModules() { return numModules; }
     int getCharsetSize() const { return charSetSize; }
     void setMqtt(SplitFlapMqtt *mqttHandler);
+    SplitFlapModule* getModules() { return modules; }       // Get access to modules array for testing
 
   private:
     JsonSettings &settings;

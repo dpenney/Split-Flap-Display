@@ -17,6 +17,7 @@ bool hasErrored = false;
 // Default Constructor
 SplitFlapModule::SplitFlapModule()
     : address(0), position(0), stepNumber(0), stepsPerRot(0), chars(StandardChars), numChars(37), charSetSize(37) {
+    baseMagnetPosition = 710;
     magnetPosition = 710;
 }
 
@@ -25,10 +26,15 @@ SplitFlapModule::SplitFlapModule(
     uint8_t I2Caddress, int stepsPerFullRotation, int stepOffset, int magnetPos, int charsetSize
 )
     : address(I2Caddress), position(0), stepNumber(0), stepsPerRot(stepsPerFullRotation), charSetSize(charsetSize) {
+    baseMagnetPosition = magnetPos;
     magnetPosition = magnetPos + stepOffset;
 
     chars = (charsetSize == 48) ? ExtendedChars : StandardChars;
     numChars = (charsetSize == 48) ? 48 : 37;
+}
+
+void SplitFlapModule::updateOffset(int newOffset) {
+    magnetPosition = baseMagnetPosition + newOffset;
 }
 
 void SplitFlapModule::writeIO(uint16_t data) {
@@ -144,5 +150,31 @@ bool SplitFlapModule::readHallEffectSensor() {
 
         return (inputState & (1 << 15)) != 0; // If bit is 15, return HIGH, else LOW
     }
+    return false;
+}
+
+bool SplitFlapModule::testI2CConnectivity() {
+    // Try to communicate with the module by requesting 2 bytes
+    Wire.beginTransmission(address);
+    byte error = Wire.endTransmission();
+
+    // error codes:
+    // 0: success
+    // 1: data too long to fit in transmit buffer
+    // 2: received NACK on transmit of address
+    // 3: received NACK on transmit of data
+    // 4: other error
+    // 5: timeout
+
+    if (error == 0) {
+        // Module responded, try reading some data to verify full communication
+        Wire.requestFrom(address, (uint8_t)2);
+        if (Wire.available() == 2) {
+            Wire.read(); // Read and discard
+            Wire.read(); // Read and discard
+            return true;
+        }
+    }
+
     return false;
 }

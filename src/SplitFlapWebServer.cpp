@@ -1,4 +1,5 @@
 #include "SplitFlapWebServer.h"
+#include "SplitFlapDisplay.h"
 
 #include <ArduinoJson.h>
 #include <AsyncJson.h>
@@ -16,7 +17,7 @@
 SplitFlapWebServer::SplitFlapWebServer(JsonSettings &settings)
     : settings(settings), server(80), multiWordDelay(1000), rebootRequired(false), attemptReconnect(false),
       multiWordCurrentIndex(0), numMultiWords(0), wifiCheckInterval(1000), connectionMode(0), checkDateInterval(250),
-      centering(1) {
+      centering(1), inputString(""), multiInputString(""), writtenString("") {
     lastSwitchMultiTime = millis();
 }
 
@@ -372,6 +373,11 @@ void SplitFlapWebServer::startWebServer() {
             response["message"] = "Settings updated successfully, OTA Password has changed. Rebooting...";
         }
 
+        if (json["moduleCount"].is<int>() && json["moduleCount"].as<int>() != settings.getInt("moduleCount")) {
+            rebootRequired = true; // Module count change requires reinitialization
+            response["message"] = "Settings updated successfully, Module count has changed. Rebooting...";
+        }
+
         if (json["mdns"].is<String>() && json["mdns"].as<String>() != settings.getString("mdns")) {
             reconnect = true;
             response["message"] =
@@ -389,12 +395,24 @@ void SplitFlapWebServer::startWebServer() {
             reconnect = true;
         }
 
+        // Check if offset settings are being updated
+        bool offsetsChanged = false;
+        if (json["moduleOffsets"].is<const char*>() || json["displayOffset"].is<int>()) {
+            offsetsChanged = true;
+        }
+
         if (! settings.fromJson(json)) {
             response["message"] = "Failed to save settings";
             response["type"] = "error";
             response["errors"]["key"] = settings.getLastValidationKey();
             response["errors"]["message"] = settings.getLastValidationError();
             return request->send(400, "application/json", response.as<String>());
+        }
+
+        // If offsets changed and display is available, update them dynamically
+        if (offsetsChanged && this->display != nullptr) {
+            this->display->updateOffsets();
+            response["message"] = "Settings saved and offsets updated successfully!";
         }
 
         response["type"] = "success";
@@ -451,8 +469,15 @@ void SplitFlapWebServer::startWebServer() {
         if (json["mode"] == "single") {
             String word = decodeURIComponent(json["words"][0].as<String>());
             Serial.println("Single Word: " + word);
-            this->setInputString(word);
-            this->setMode(0); // change mode last once all variables updated
+
+            // Check for #home command in mode 6
+            if (settings.getInt("mode") == 6 && word == "#home") {
+                this->setInputString("#home");
+                this->setMode(6); // Stay in mode 6
+            } else {
+                this->setInputString(word);
+                this->setMode(0); // change mode last once all variables updated
+            }
         }
 
         if (json["mode"] == "multiple") {
@@ -478,6 +503,131 @@ void SplitFlapWebServer::startWebServer() {
 
         request->send(200, "application/json", response.as<String>());
     }));
+
+    // Test individual module endpoint - using explicit paths for each module
+    for (int i = 0; i < 8; i++) {
+        String testPath = "/api/module/" + String(i) + "/test";
+        server.on(testPath.c_str(), HTTP_POST, [this, i](AsyncWebServerRequest *request) {
+            JsonDocument response;
+
+            if (this->display == nullptr) {
+                response["message"] = "Display not initialized";
+                response["type"] = "error";
+                return request->send(500, "application/json", response.as<String>());
+            }
+
+            if (i >= this->display->getNumModules()) {
+                response["message"] = "Invalid module ID";
+                response["type"] = "error";
+                return request->send(400, "application/json", response.as<String>());
+            }
+
+            Serial.print("Testing module: ");
+            Serial.println(i);
+
+            // Update offsets before testing to apply any recent changes
+            this->display->updateOffsets();
+
+            this->display->testModule(i);
+
+            response["message"] = "Module test complete";
+            response["type"] = "success";
+            request->send(200, "application/json", response.as<String>());
+        });
+    }
+
+    // Update individual module offset endpoint - using explicit paths for each module
+    for (int i = 0; i < 8; i++) {
+        String offsetPath = "/api/module/" + String(i) + "/offset";
+        server.addHandler(new AsyncCallbackJsonWebHandler(
+            offsetPath.c_str(),
+            [this, i](AsyncWebServerRequest *request, JsonVariant &json) {
+            if (request->method() != HTTP_POST) {
+                return request->send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
+            }
+
+            JsonDocument response;
+
+            if (this->display == nullptr) {
+                response["message"] = "Display not initialized";
+                response["type"] = "error";
+                return request->send(500, "application/json", response.as<String>());
+            }
+
+            if (i >= this->display->getNumModules()) {
+                response["message"] = "Invalid module ID";
+                response["type"] = "error";
+                return request->send(400, "application/json", response.as<String>());
+            }
+
+            if (!json["offset"].is<int>()) {
+                response["message"] = "Invalid offset value";
+                response["type"] = "error";
+                return request->send(400, "application/json", response.as<String>());
+            }
+
+            int offset = json["offset"].as<int>();
+
+            Serial.print("Setting module ");
+            Serial.print(i);
+            Serial.print(" offset to: ");
+            Serial.println(offset);
+
+            // Get current offsets
+            std::vector<int> offsets = settings.getIntVector("moduleOffsets");
+
+            // Update the specific module offset
+            if (i < offsets.size()) {
+                offsets[i] = offset;
+            }
+
+            // Convert back to comma-separated string
+            String offsetStr = "";
+            for (size_t j = 0; j < offsets.size(); j++) {
+                offsetStr += String(offsets[j]);
+                if (j < offsets.size() - 1) {
+                    offsetStr += ",";
+                }
+            }
+
+            // Save to settings
+            settings.putString("moduleOffsets", offsetStr.c_str());
+
+            // Update display offsets dynamically
+            this->display->updateOffsets();
+
+            response["message"] = "Offset updated successfully";
+            response["type"] = "success";
+            request->send(200, "application/json", response.as<String>());
+        }
+        ));
+    }
+
+    // I2C connectivity test endpoint
+    server.on("/api/i2c/test", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        JsonDocument response;
+
+        if (this->display == nullptr) {
+            response["message"] = "Display not initialized";
+            response["type"] = "error";
+            return request->send(500, "application/json", response.as<String>());
+        }
+
+        JsonArray results = response["modules"].to<JsonArray>();
+        int numModules = this->display->getNumModules();
+        SplitFlapModule* modules = this->display->getModules();
+
+        for (int i = 0; i < numModules; i++) {
+            JsonObject module = results.add<JsonObject>();
+            module["index"] = i;
+            module["address"] = modules[i].getAddress();
+            module["connected"] = modules[i].testI2CConnectivity();
+        }
+
+        response["message"] = "I2C connectivity test complete";
+        response["type"] = "success";
+        request->send(200, "application/json", response.as<String>());
+    });
 
     server.onNotFound(fourOhFour);
 

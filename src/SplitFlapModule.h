@@ -11,6 +11,7 @@ class SplitFlapModule {
     SplitFlapModule(uint8_t I2Caddress, int stepsPerFullRotation, int stepOffset, int magnetPos, int charSetSize);
 
     void init();
+    void updateOffset(int newOffset);                        // update the offset dynamically
 
     void step(bool updatePosition = true);                   // step motor
     void stop();                                             // write all motor input pins to low
@@ -28,6 +29,8 @@ class SplitFlapModule {
     } // update position to magnetposition, called when magnet is detected
 
     bool getHasErrored() const { return hasErrored; }
+    bool testI2CConnectivity();                              // test if module responds on I2C bus
+    uint8_t getAddress() const { return address; }           // get I2C address
 
   private:
     uint8_t address;                // i2c address of module
@@ -39,6 +42,7 @@ class SplitFlapModule {
     void writeIO(uint16_t data);    // write to motor in pins
 
     int magnetPosition;             // altered by offsets
+    int baseMagnetPosition;         // original magnet position before offset
     static const int motorPins[];   // Array of motor pins
     static const int HallEffectPIN; // Hall Effect Sensor Pin (On PCF8575)
 

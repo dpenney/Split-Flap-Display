@@ -3,6 +3,7 @@
 #include "JsonSettings.h"
 #include "SplitFlapModule.h"
 #include "SplitFlapMqtt.h"
+#include <esp_task_wdt.h>
 
 SplitFlapDisplay::SplitFlapDisplay(JsonSettings &settings) : settings(settings) {}
 
@@ -48,6 +49,28 @@ void SplitFlapDisplay::init() {
     }
 }
 
+void SplitFlapDisplay::updateOffsets() {
+    // Reload offsets from settings
+    displayOffset = settings.getInt("displayOffset");
+    
+    std::vector<int> settingOffsets = settings.getIntVector("moduleOffsets");
+    for (int i = 0; i < numModules; i++) {
+        moduleOffsets[i] = settingOffsets[i];
+        // Update each module's offset
+        modules[i].updateOffset(moduleOffsets[i] + displayOffset);
+    }
+    
+    Serial.println("Module offsets updated dynamically");
+    Serial.print("Display Offset: ");
+    Serial.println(displayOffset);
+    Serial.print("Module Offsets: ");
+    for (int i = 0; i < numModules; i++) {
+        Serial.print(moduleOffsets[i]);
+        Serial.print(" ");
+    }
+    Serial.println();
+}
+
 void SplitFlapDisplay::testAll() {
     char testChars[37] = {' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
                           'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
@@ -88,6 +111,53 @@ void SplitFlapDisplay::testRandom(float speed) {
     moveTo(targetPositions, speed);
 }
 
+void SplitFlapDisplay::testModule(int moduleIndex, float speed) {
+    if (moduleIndex < 0 || moduleIndex >= numModules) {
+        Serial.println("Invalid module index");
+        return;
+    }
+
+    Serial.print("Homing module ");
+    Serial.println(moduleIndex);
+
+    int targetPositions[numModules];
+
+    // Get current positions for all modules (keep them stationary)
+    for (int i = 0; i < numModules; i++) {
+        targetPositions[i] = modules[i].getPosition();
+    }
+
+    // Set target for the specific module to trigger homing
+    // Move back one step to ensure we cross the magnet sensor
+    targetPositions[moduleIndex] = (modules[moduleIndex].getPosition() - 1 + stepsPerRot) % stepsPerRot;
+
+    startMotors();
+    moveTo(targetPositions, speed, true, true);  // isHoming = true
+
+    Serial.print("Module ");
+    Serial.print(moduleIndex);
+    Serial.print(" homed to position: ");
+    Serial.println(modules[moduleIndex].getPosition());
+
+    // Move to blank space to show alignment
+    // Use smaller delays with yields to avoid watchdog timeout
+    for (int i = 0; i < 5; i++) {
+        delay(100);
+        yield();  // Allow other tasks to run
+    }
+
+    Serial.println("Moving to blank to show alignment");
+    for (int i = 0; i < numModules; i++) {
+        targetPositions[i] = modules[i].getPosition();
+    }
+    targetPositions[moduleIndex] = modules[moduleIndex].getCharPosition(' ');
+    moveTo(targetPositions, speed);
+
+    Serial.print("Module at position: ");
+    Serial.print(modules[moduleIndex].getPosition());
+    Serial.println(" (should show blank)");
+}
+
 void SplitFlapDisplay::testCount() {
     int count = 0;
     int maxCount = pow(10, numModules);
@@ -111,18 +181,48 @@ void SplitFlapDisplay::testCount() {
 
 void SplitFlapDisplay::home(float speed) {
     Serial.println("Homing");
+    Serial.print("Initial positions: ");
+    for (int i = 0; i < numModules; i++) {
+        Serial.print(modules[i].getPosition());
+        Serial.print(" ");
+    }
+    Serial.println();
+
     int targetPositions[numModules];
     for (int i = 0; i < numModules; i++) {
         targetPositions[i] = (modules[i].getPosition() - 1 + stepsPerRot) % stepsPerRot;
     }
     startMotors();
-    moveTo(targetPositions, speed, false);
+    moveTo(targetPositions, speed, false, true);  // isHoming = true
+
+    Serial.print("Positions after magnet detection: ");
+    for (int i = 0; i < numModules; i++) {
+        Serial.print(modules[i].getPosition());
+        Serial.print(" ");
+    }
+    Serial.println();
+
     char homeChar = ' ';
     int charPosition;
     for (int i = 0; i < numModules; i++) {
         targetPositions[i] = modules[i].getCharPosition(homeChar);
     }
+
+    Serial.print("Target positions for blank: ");
+    for (int i = 0; i < numModules; i++) {
+        Serial.print(targetPositions[i]);
+        Serial.print(" ");
+    }
+    Serial.println();
+
     moveTo(targetPositions, speed);
+
+    Serial.print("Final positions: ");
+    for (int i = 0; i < numModules; i++) {
+        Serial.print(modules[i].getPosition());
+        Serial.print(" ");
+    }
+    Serial.println();
 }
 
 void SplitFlapDisplay::homeToString(String homeString, float speed, bool centering) {
@@ -132,7 +232,7 @@ void SplitFlapDisplay::homeToString(String homeString, float speed, bool centeri
         targetPositions[i] = (modules[i].getPosition() - 1 + stepsPerRot) % stepsPerRot;
     }
     startMotors();
-    moveTo(targetPositions, speed, false);
+    moveTo(targetPositions, speed, false, true);  // isHoming = true
     writeString(homeString, speed, centering);
 }
 
@@ -143,7 +243,7 @@ void SplitFlapDisplay::homeToChar(char homeChar, float speed) {
         targetPositions[i] = (modules[i].getPosition() - 1 + stepsPerRot) % stepsPerRot;
     }
     startMotors();
-    moveTo(targetPositions, speed, false);
+    moveTo(targetPositions, speed, false, true);  // isHoming = true
 
     for (int i = 0; i < numModules; i++) {
         targetPositions[i] = modules[i].getCharPosition(homeChar);
@@ -189,8 +289,14 @@ void SplitFlapDisplay::writeString(String inputString, float speed, bool centeri
     }
 
     int targetPositions[numModules];
-    // Iterate through the input string and process each character
-    for (int i = 0; i < displayString.length(); i++) {
+
+    // Initialize all positions to blank space first
+    for (int i = 0; i < numModules; i++) {
+        targetPositions[i] = modules[i].getCharPosition(' ');
+    }
+
+    // Then set positions for the actual characters in the string
+    for (int i = 0; i < displayString.length() && i < numModules; i++) {
         char currentChar = displayString[i];
         // Serial.println(currentChar);
         targetPositions[i] = modules[i].getCharPosition(currentChar);
@@ -202,7 +308,7 @@ void SplitFlapDisplay::writeString(String inputString, float speed, bool centeri
     }
 }
 
-void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMotors) {
+void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMotors, bool isHoming) {
     // TODO check length of array and return if empty
 
     speed = constrain(speed, 2, maxVel);
@@ -221,6 +327,7 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
     bool needsStepping[numModules] = {};             // Initialize to false; //modules that still require moving
     unsigned long lastStepTimes[numModules] = {};    // Initialize to false; //track when each module was last stepped
     unsigned long lastSensorCheckTime = currentTime; // track when we last read all the hall effect sensors
+    bool sensorTriggered[numModules] = {};           // Track which modules triggered their hall sensor
 
     for (int i = 0; i < numModules; i++) {
         targetPositions[i] = constrain(
@@ -242,8 +349,18 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
     delay(startStopDelay); // give the motor time to align to magnetic field
 
     bool isFinished = checkAllFalse(needsStepping, numModules);
+    unsigned long lastWatchdogFeed = millis();
+
     while (! isFinished) {
         currentTime = micros();
+
+        // Feed the watchdog timer every 100ms to prevent timeout
+        if (millis() - lastWatchdogFeed > 100) {
+            yield();
+            esp_task_wdt_reset();  // Reset the task watchdog timer
+            lastWatchdogFeed = millis();
+        }
+
         for (int i = 0; i < numModules; i++) {
             if (((currentTime - lastStepTimes[i]) > timePerStep) && needsStepping[i]) {
                 modules[i].step();
@@ -262,6 +379,9 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
                     (modules[i].readHallEffectSensor() == true
                     )) { // only check sensors where the module is still moving
                     if (! resetLatches[i]) {
+                        // Track that this module's sensor was triggered (for debug summary)
+                        sensorTriggered[i] = true;
+
                         // UNCOMMENTING THIS WILL PROBBALY MAKE THE MOTORS INACCURATE, DUE
                         // TO TIME TAKEN TO PRINT
                         //  Serial.print("Module: ");
@@ -289,6 +409,25 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
     if (releaseMotors) {
         delay(startStopDelay); // allow all motors time to settle
         stopMotors();
+    }
+
+    // Print hall sensor summary if this is a homing operation
+    if (isHoming) {
+        Serial.print("Hall sensor summary - Triggered modules: ");
+        bool anyTriggered = false;
+        for (int i = 0; i < numModules; i++) {
+            if (sensorTriggered[i]) {
+                if (anyTriggered) {
+                    Serial.print(", ");
+                }
+                Serial.print(i);
+                anyTriggered = true;
+            }
+        }
+        if (!anyTriggered) {
+            Serial.print("None");
+        }
+        Serial.println();
     }
 }
 

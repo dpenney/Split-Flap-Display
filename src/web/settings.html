@@ -488,7 +488,7 @@
             <div class="grid grid-cols-4 md:grid-cols-8 gap-2 mt-2 w-full">
                 <template
                     x-for="(val, i) in Array.from({ length: settings.moduleCount })"
-                    :key="`addr-${i}-${addressArray[i]}`"
+                    :key="`addr-${i}`"
                 >
                     <input
                         type="number"
@@ -510,7 +510,7 @@
             <div class="grid grid-cols-4 md:grid-cols-8 gap-2 mt-2 w-full">
                 <template
                     x-for="(val, i) in Array.from({ length: settings.moduleCount })"
-                    :key="`off-${i}-${offsetArray[i]}`"
+                    :key="`off-${i}`"
                 >
                     <input
                         type="number"
@@ -527,6 +527,133 @@
                 x-show="errors.key === 'moduleOffsets'"
                 x-text="errors.message"
             ></div>
+
+            <!-- Module Calibration Section -->
+            <h2
+                class="text-xl font-semibold text-left w-full border-b border-gray-600 pb-2 mt-8 mb-2 flex justify-between"
+            >
+                Module Calibration
+                <button
+                    type="button"
+                    class="ml-1 text-sm text-gray-400 hover:text-white cursor-pointer transition-colors"
+                    @click="$dispatch('open-help', {
+                        title: 'Module Calibration Help',
+                        content: `
+                            <p><strong>How to use:</strong></p>
+                            <ul class='list-disc list-inside pl-2'>
+                                <li>Click <strong>Test</strong> to home the module and see its current alignment</li>
+                                <li>If misaligned, adjust the offset using +/- buttons</li>
+                                <li>Click <strong>Test</strong> again to re-home and verify alignment</li>
+                                <li>Repeat until the alignment is correct</li>
+                                <li>Click <strong>Save Settings</strong> at the bottom to persist changes</li>
+                            </ul>
+                            <p class='mt-2 text-xs italic text-gray-400'>
+                                The Test button homes the module to its reference position so you can check alignment.
+                                Positive offsets rotate clockwise, negative rotate counter-clockwise.
+                            </p>
+                        `
+                    })"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="1.5"
+                        stroke="currentColor"
+                        class="size-6"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"
+                        />
+                    </svg>
+                </button>
+            </h2>
+
+            <div class="w-full">
+                <template
+                    x-for="(val, i) in Array.from({ length: settings.moduleCount })"
+                    :key="`cal-${i}`"
+                >
+                    <div
+                        class="flex items-center justify-between p-3 mt-2 bg-neutral-700 rounded-md"
+                    >
+                        <div class="flex items-center gap-3 flex-1">
+                            <span class="text-lg font-semibold w-20"
+                                >Module <span x-text="i"></span
+                            ></span>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    @click="updateModuleOffset(i, -10)"
+                                    class="px-2 py-1 text-sm bg-neutral-600 hover:bg-neutral-500 rounded transition-colors"
+                                    :disabled="testingModule !== null"
+                                >
+                                    -10
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="updateModuleOffset(i, -5)"
+                                    class="px-2 py-1 text-sm bg-neutral-600 hover:bg-neutral-500 rounded transition-colors"
+                                    :disabled="testingModule !== null"
+                                >
+                                    -5
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="updateModuleOffset(i, -1)"
+                                    class="px-2 py-1 text-sm bg-neutral-600 hover:bg-neutral-500 rounded transition-colors"
+                                    :disabled="testingModule !== null"
+                                >
+                                    -1
+                                </button>
+                                <input
+                                    type="number"
+                                    class="no-buttons w-20 p-2 text-center border border-gray-600 rounded-md bg-neutral-800 text-gray-100"
+                                    :value="offsetArray[i]"
+                                    readonly
+                                />
+                                <button
+                                    type="button"
+                                    @click="updateModuleOffset(i, 1)"
+                                    class="px-2 py-1 text-sm bg-neutral-600 hover:bg-neutral-500 rounded transition-colors"
+                                    :disabled="testingModule !== null"
+                                >
+                                    +1
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="updateModuleOffset(i, 5)"
+                                    class="px-2 py-1 text-sm bg-neutral-600 hover:bg-neutral-500 rounded transition-colors"
+                                    :disabled="testingModule !== null"
+                                >
+                                    +5
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="updateModuleOffset(i, 10)"
+                                    class="px-2 py-1 text-sm bg-neutral-600 hover:bg-neutral-500 rounded transition-colors"
+                                    :disabled="testingModule !== null"
+                                >
+                                    +10
+                                </button>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            @click="testModule(i)"
+                            class="px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-500 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            :disabled="testingModule !== null"
+                        >
+                            <span x-show="testingModule !== i">Test</span>
+                            <span x-show="testingModule === i"
+                                >Testing...</span
+                            >
+                        </button>
+                    </div>
+                </template>
+            </div>
 
             <a
                 href="#"
