@@ -8,6 +8,11 @@
 #define MAX_MODULES 8 // for memory allocation, update if more modules
 #define MAX_RPM 15.0f
 
+// Timing constants for motor control
+#define HALL_EFFECT_CHECK_INTERVAL_US  (20 * 1000)  // 20ms minimum to avoid sensor bouncing
+#define MOTOR_START_STOP_DELAY_MS      200          // Time for motor to align to magnetic field
+#define WATCHDOG_FEED_INTERVAL_MS      100          // Feed watchdog every 100ms during operations
+
 class SplitFlapMqtt;
 
 class SplitFlapDisplay {
@@ -45,6 +50,7 @@ class SplitFlapDisplay {
     bool checkAllFalse(bool array[], int size);
     void stopMotors();
     void startMotors();
+    void performHomingSequence(float speed);  // Shared homing logic
 
     int numModules;
     uint8_t moduleAddresses[MAX_MODULES];

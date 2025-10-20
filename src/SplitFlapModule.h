@@ -3,6 +3,22 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+// PCF8575 I/O Expander Pin Configuration
+// Bits 0-3: Stepper motor control pins (outputs)
+// Bit 15: Hall effect sensor input
+#define PCF8575_IO_INIT_STATE     0b1111111111100001  // Pin 15 input, pins 0-3 output
+#define PCF8575_MOTOR_STOP_STATE  0b1111111111100001  // All motor pins LOW
+
+// Stepper Motor Control Patterns (4-step sequence)
+// These patterns energize different coil combinations for smooth stepping
+#define STEPPER_PATTERN_0  0b1111111111100111  // Coils A+B
+#define STEPPER_PATTERN_1  0b1111111111110011  // Coils B+C
+#define STEPPER_PATTERN_2  0b1111111111111001  // Coils C+D
+#define STEPPER_PATTERN_3  0b1111111111101101  // Coils D+A
+
+// Initialization timing
+#define MODULE_INIT_DELAY_MS  100  // Delay between initialization steps
+
 class SplitFlapModule {
   public:
     // Constructor declarationS

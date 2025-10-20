@@ -89,22 +89,20 @@ void SplitFlapModule::init() {
         currentPosition += stepSize;
     }
 
-    uint16_t initState = 0b1111111111100001; // Pin 15 (17) as INPUT, Pins 1-4 as OUTPUT
-    writeIO(initState);
+    writeIO(PCF8575_IO_INIT_STATE);
 
-    stop();                                  // Write all motor coil inputs LOW
+    stop();  // Write all motor coil inputs LOW
 
-    int initDelay = 100;
-
-    delay(initDelay);
+    // Perform initial stepping sequence to energize motor
+    delay(MODULE_INIT_DELAY_MS);
     step();
-    delay(initDelay);
+    delay(MODULE_INIT_DELAY_MS);
     step();
-    delay(initDelay);
+    delay(MODULE_INIT_DELAY_MS);
     step();
-    delay(initDelay);
+    delay(MODULE_INIT_DELAY_MS);
     step();
-    delay(initDelay);
+    delay(MODULE_INIT_DELAY_MS);
 
     stop();
 }
@@ -116,12 +114,15 @@ int SplitFlapModule::getCharPosition(char inputChar) {
             return charPositions[i];
         }
     }
-    return 0; // Character not found, return blank
+
+    // Character not found in charset - log warning and return blank
+    Serial.printf("WARNING: Character '%c' (0x%02X) not in %d-char charset, displaying blank\n",
+                  inputChar, (uint8_t)inputChar, charSetSize);
+    return 0;
 }
 
 void SplitFlapModule::stop() {
-    uint16_t stepState = 0b1111111111100001;
-    writeIO(stepState);
+    writeIO(PCF8575_MOTOR_STOP_STATE);
 }
 
 void SplitFlapModule::start() {
@@ -133,22 +134,25 @@ void SplitFlapModule::step(bool updatePosition) {
     uint16_t stepState;
     switch (stepNumber) {
         case 0:
-            stepState = 0b1111111111100111;
-            writeIO(stepState);
+            stepState = STEPPER_PATTERN_0;
             break;
         case 1:
-            stepState = 0b1111111111110011;
-            writeIO(stepState);
+            stepState = STEPPER_PATTERN_1;
             break;
         case 2:
-            stepState = 0b1111111111111001;
-            writeIO(stepState);
+            stepState = STEPPER_PATTERN_2;
             break;
         case 3:
-            stepState = 0b1111111111101101;
-            writeIO(stepState);
+            stepState = STEPPER_PATTERN_3;
+            break;
+        default:
+            // Should never happen, but safe fallback
+            stepState = PCF8575_MOTOR_STOP_STATE;
+            Serial.printf("ERROR: Invalid stepNumber %d for module 0x%02X\n", stepNumber, address);
             break;
     }
+    writeIO(stepState);
+
     if (updatePosition) {
         position = (position + 1) % stepsPerRot;
         stepNumber = (stepNumber + 1) % 4;
