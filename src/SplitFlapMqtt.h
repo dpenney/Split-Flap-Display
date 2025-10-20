@@ -19,6 +19,7 @@ class SplitFlapMqtt {
     void setDisplay(SplitFlapDisplay *display);
     void setWebServer(SplitFlapWebServer *server);
     bool isConnected();
+    void checkConnection();                                    // check and reconnect if needed
 
   private:
     PubSubClient mqttClient; // PubSubClient instead of AsyncMqttClient
@@ -43,4 +44,9 @@ class SplitFlapMqtt {
 
     unsigned long lastAttempt = 0;
     int retryCount = 0;
+
+    // MQTT reconnection tracking
+    unsigned long lastReconnectAttempt = 0;
+    const unsigned long reconnectInterval = 5000;  // Try reconnecting every 5 seconds
+    bool wasConnected = false;                     // Track previous connection state
 };

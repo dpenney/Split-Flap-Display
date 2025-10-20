@@ -113,6 +113,42 @@ void SplitFlapMqtt::publishState(const String &message) {
 
 void SplitFlapMqtt::loop() {
     mqttClient.loop();
+    checkConnection();  // Check and reconnect if needed
+}
+
+void SplitFlapMqtt::checkConnection() {
+    bool currentlyConnected = mqttClient.connected();
+
+    // Check if MQTT server is configured
+    if (mqttServer.length() == 0) {
+        return; // No MQTT server configured, skip reconnection
+    }
+
+    // Detect state change from connected to disconnected
+    if (wasConnected && !currentlyConnected) {
+        Serial.println("[MQTT] Connection lost!");
+        // Publish offline status before losing connection completely
+        mqttClient.publish(topic_avail.c_str(), "offline", true);
+    }
+
+    // Attempt reconnection if disconnected
+    if (!currentlyConnected) {
+        unsigned long now = millis();
+
+        // Check if enough time has passed since last attempt
+        if (now - lastReconnectAttempt >= reconnectInterval) {
+            lastReconnectAttempt = now;
+            Serial.println("[MQTT] Attempting to reconnect...");
+            connectToMqtt();
+        }
+    } else {
+        // Connected - detect state change from disconnected to connected
+        if (!wasConnected) {
+            Serial.println("[MQTT] Connection established/restored!");
+        }
+    }
+
+    wasConnected = currentlyConnected;
 }
 
 bool SplitFlapMqtt::isConnected() {

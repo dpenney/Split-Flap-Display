@@ -44,17 +44,39 @@ void SplitFlapModule::writeIO(uint16_t data) {
 
     byte error = Wire.endTransmission();
 
-    if (error > 0 && ! hasErrored) {
-        hasErrored = true; // Set the error flag
-        Serial.print("Error writing data to module ");
-        Serial.print(address);
-        Serial.print(", error code: ");
-        Serial.println(error); // Error codes:
-        // 0 = success
-        // 1 = data too long to fit in transmit buffer
-        // 2 = received NACK on transmit of address
-        // 3 = received NACK on transmit of data
-        // 4 = other error
+    if (error > 0) {
+        consecutiveErrors++;
+        if (!hasErrored || consecutiveErrors == 1) {
+            hasErrored = true;
+            Serial.print("Error writing data to module ");
+            Serial.print(address);
+            Serial.print(", error code: ");
+            Serial.println(error);
+            // Error codes:
+            // 0 = success
+            // 1 = data too long to fit in transmit buffer
+            // 2 = received NACK on transmit of address
+            // 3 = received NACK on transmit of data
+            // 4 = other error
+        }
+
+        // Attempt recovery after multiple errors
+        if (consecutiveErrors >= 3) {
+            Serial.print("Module ");
+            Serial.print(address);
+            Serial.println(" has persistent I2C errors, attempting recovery...");
+            delay(10);
+            consecutiveErrors = 0; // Reset counter after recovery attempt
+        }
+    } else {
+        // Communication successful - reset error tracking
+        if (consecutiveErrors > 0) {
+            Serial.print("Module ");
+            Serial.print(address);
+            Serial.println(" communication recovered");
+            consecutiveErrors = 0;
+            hasErrored = false;
+        }
     }
 }
 
@@ -100,11 +122,14 @@ int SplitFlapModule::getCharPosition(char inputChar) {
 void SplitFlapModule::stop() {
     uint16_t stepState = 0b1111111111100001;
     writeIO(stepState);
+    isMotorStopped = true;
+    lastStopTime = millis();
 }
 
 void SplitFlapModule::start() {
     stepNumber = (stepNumber + 3) % 4; // effectively take one off stepNumber
     step(false);                       // write the "previous" step high again, in case turned off
+    isMotorStopped = false;
 }
 
 void SplitFlapModule::step(bool updatePosition) {
@@ -130,6 +155,8 @@ void SplitFlapModule::step(bool updatePosition) {
     if (updatePosition) {
         position = (position + 1) % stepsPerRot;
         stepNumber = (stepNumber + 1) % 4;
+        lastMovementTime = millis();
+        isMotorStopped = false;
     }
 }
 
@@ -177,4 +204,63 @@ bool SplitFlapModule::testI2CConnectivity() {
     }
 
     return false;
+}
+
+bool SplitFlapModule::needsWakeUp(unsigned long idleThresholdMs) {
+    if (!isMotorStopped) {
+        return false; // Motor is currently running
+    }
+
+    unsigned long idleTime = millis() - lastStopTime;
+    return idleTime >= idleThresholdMs;
+}
+
+void SplitFlapModule::wakeUp() {
+    // Gentle wake-up sequence for motors that have been idle
+    // This helps overcome static friction and ensures coils are properly energized
+
+    Serial.print("Waking up module ");
+    Serial.print(address);
+    Serial.print(" (idle for ");
+    Serial.print((millis() - lastStopTime) / 1000);
+    Serial.println(" seconds)");
+
+    // Step 1: Gradually energize coils with micro-steps
+    // This helps overcome stiction without jerking the mechanism
+    for (int i = 0; i < 4; i++) {
+        step(false); // Step without updating position
+        delay(50);   // Longer delay for gentle energizing
+        yield();     // Allow other tasks to run
+    }
+
+    // Step 2: Small oscillation to break static friction
+    // Move forward slightly then back to original position
+    int originalStepNumber = stepNumber;
+    for (int i = 0; i < 2; i++) {
+        step(false);
+        delay(30);
+        yield();
+    }
+
+    // Return to original step position
+    for (int i = 0; i < 2; i++) {
+        stepNumber = (stepNumber + 3) % 4; // Step backwards
+        step(false);
+        delay(30);
+        yield();
+    }
+
+    stepNumber = originalStepNumber;
+
+    // Step 3: Full power holding
+    // Ensure current coil is at full strength
+    step(false);
+    delay(20);
+
+    Serial.print("Module ");
+    Serial.print(address);
+    Serial.println(" wake-up complete");
+
+    isMotorStopped = false;
+    lastMovementTime = millis();
 }

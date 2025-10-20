@@ -154,10 +154,53 @@ int SplitFlapWebServer::getMode() {
 
 void SplitFlapWebServer::checkWiFi() {
     if (connectionMode == 1) {
-        if (WiFi.status() != WL_CONNECTED) {
-            Serial.println("Wi-Fi lost! Forcing reconnect...");
-            WiFi.disconnect();
-            WiFi.reconnect();
+        wl_status_t status = WiFi.status();
+
+        if (status == WL_CONNECTED) {
+            // Successfully connected - reset reconnection tracking
+            if (isReconnecting) {
+                Serial.println("WiFi reconnected successfully!");
+                isReconnecting = false;
+                reconnectAttempts = 0;
+            }
+        } else {
+            // WiFi is disconnected
+            if (!isReconnecting) {
+                // First detection of disconnection
+                Serial.print("WiFi lost! Status: ");
+                Serial.println(status);
+                isReconnecting = true;
+                reconnectAttempts = 0;
+                lastReconnectAttempt = millis();
+
+                Serial.println("Attempting reconnection (attempt 1)...");
+                WiFi.disconnect();
+                WiFi.reconnect();
+                reconnectAttempts = 1;
+            } else {
+                // Already trying to reconnect - use exponential backoff
+                unsigned long timeSinceLastAttempt = millis() - lastReconnectAttempt;
+                // Backoff: 5s, 10s, 15s, 20s, 30s, 45s, 60s, 90s, 120s, 180s
+                unsigned long backoffTime = min(5000UL * (1 << (reconnectAttempts / 3)), 180000UL);
+
+                if (timeSinceLastAttempt >= backoffTime) {
+                    reconnectAttempts++;
+
+                    if (reconnectAttempts >= maxReconnectAttempts) {
+                        Serial.println("Max reconnection attempts reached. Giving up.");
+                        Serial.println("Please restart the device or check WiFi credentials.");
+                        // Stop trying to prevent infinite loop
+                        isReconnecting = false;
+                    } else {
+                        Serial.printf("Reconnection attempt %d/%d (waited %lums)...\n",
+                                    reconnectAttempts, maxReconnectAttempts, timeSinceLastAttempt);
+                        WiFi.disconnect();
+                        delay(100);
+                        WiFi.reconnect();
+                        lastReconnectAttempt = millis();
+                    }
+                }
+            }
         }
     }
 }

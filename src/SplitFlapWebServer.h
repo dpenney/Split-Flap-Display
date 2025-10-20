@@ -97,6 +97,13 @@ class SplitFlapWebServer {
     bool attemptReconnect;
     unsigned long lastCheckWifiTime;
     int wifiCheckInterval;
+
+    // WiFi reconnection tracking
+    unsigned long lastReconnectAttempt = 0;
+    int reconnectAttempts = 0;
+    const int maxReconnectAttempts = 10;
+    bool isReconnecting = false;
+
     AsyncWebServer server; // Declare server as a class member
     SplitFlapDisplay *display = nullptr; // Pointer to display for offset updates
 };

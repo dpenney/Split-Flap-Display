@@ -344,6 +344,21 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
         }
     }
 
+    // Wake up idle motors before starting movement
+    // This improves reliability after long periods of inactivity (default 5 minutes)
+    bool anyModuleWokenUp = false;
+    for (int i = 0; i < numModules; i++) {
+        if (modules[i].needsWakeUp()) {
+            modules[i].wakeUp();
+            anyModuleWokenUp = true;
+        }
+    }
+
+    // If we woke up any modules, give extra time for settling
+    if (anyModuleWokenUp) {
+        delay(startStopDelay * 2);
+    }
+
     startMotors(); // not sure if this helps or not, likely that it does not based
     // on testing
     delay(startStopDelay); // give the motor time to align to magnetic field
