@@ -313,6 +313,8 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
         }
     }
 
+    isMoving = true;  // Set busy flag at start of movement
+
     speed = constrain(speed, 2, maxVel);
     float stepsPerSecond = (speed / 60) * stepsPerRot;
     float timePerStep = 1000000 / stepsPerSecond;
@@ -369,7 +371,7 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
         for (int i = 0; i < numModules; i++) {
             if (((currentTime - lastStepTimes[i]) > timePerStep) && needsStepping[i]) {
                 modules[i].step();
-                lastStepTimes[i] = micros();
+                lastStepTimes[i] = currentTime;  // Use consistent time reference
                 if (modules[i].getPosition() == targetPositions[i]) { // this module is not in the correct position,
                     // requires stepping
                     needsStepping[i] = false;
@@ -407,8 +409,7 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
                 }
             }
             isFinished = checkAllFalse(needsStepping, numModules);
-            lastSensorCheckTime = currentTime; // recall micros because for loop may
-            // take a moment to execute
+            lastSensorCheckTime = micros(); // Get fresh timestamp after sensor checks
         }
     }
     if (releaseMotors) {
@@ -434,6 +435,8 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
         }
         Serial.println();
     }
+
+    isMoving = false;  // Clear busy flag at end of movement
 }
 
 bool SplitFlapDisplay::checkAllFalse(bool array[], int size) {

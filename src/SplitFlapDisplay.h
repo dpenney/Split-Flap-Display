@@ -43,6 +43,7 @@ class SplitFlapDisplay {
     int getCharsetSize() const { return charSetSize; }
     void setMqtt(SplitFlapMqtt *mqttHandler);
     SplitFlapModule* getModules() { return modules; }       // Get access to modules array for testing
+    bool isBusy() const { return isMoving; }                // Check if display is currently moving
 
   private:
     JsonSettings &settings;
@@ -66,5 +67,6 @@ class SplitFlapDisplay {
     int SDAPin;         // SDA pin
     int SCLPin;         // SCL pin
 
+    bool isMoving = false;  // Flag to indicate if display is currently moving
     SplitFlapMqtt *mqtt = nullptr;
 };

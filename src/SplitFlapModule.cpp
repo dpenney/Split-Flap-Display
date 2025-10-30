@@ -65,7 +65,7 @@ void SplitFlapModule::writeIO(uint16_t data) {
             Serial.print("Module ");
             Serial.print(address);
             Serial.println(" has persistent I2C errors, attempting recovery...");
-            delay(10);
+            delay(2);  // Reduced from 10ms to minimize timing disruption
             consecutiveErrors = 0; // Reset counter after recovery attempt
         }
     } else {
@@ -166,6 +166,13 @@ bool SplitFlapModule::readHallEffectSensor() {
 
     uint8_t requestBytes = 2;
     Wire.requestFrom(address, requestBytes);
+
+    // Wait for data with timeout (max 5ms)
+    unsigned long startTime = millis();
+    while (Wire.available() < 2 && (millis() - startTime) < 5) {
+        // Wait for data or timeout
+    }
+
     // Make sure the data is available
     if (Wire.available() == 2) {
         uint16_t inputState = 0;
@@ -176,6 +183,8 @@ bool SplitFlapModule::readHallEffectSensor() {
 
         return (inputState & (1 << 15)) != 0; // If bit is 15, return HIGH, else LOW
     }
+
+    // Timeout or insufficient data
     return false;
 }
 

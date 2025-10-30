@@ -27,12 +27,19 @@ void SplitFlapMqtt::setup() {
         }
         Serial.printf("[MQTT] Message received: %s\n", message.c_str());
         if (display) {
-            float maxVel = settings.getFloat("maxVel");
-            display->writeString(message, maxVel, false);
-            // Update the web server's state to prevent mode logic from overwriting
-            if (webServer) {
-                webServer->setInputString(message);      // Update input to match
-                webServer->setWrittenString(message);    // Update written to match
+            // Check if display is busy
+            if (display->isBusy()) {
+                Serial.println("[MQTT] Display busy, queuing message");
+                pendingMessage = message;
+                hasPendingMessage = true;
+            } else {
+                float maxVel = settings.getFloat("maxVel");
+                display->writeString(message, maxVel, false);
+                // Update the web server's state to prevent mode logic from overwriting
+                if (webServer) {
+                    webServer->setInputString(message);      // Update input to match
+                    webServer->setWrittenString(message);    // Update written to match
+                }
             }
         }
     });
@@ -114,6 +121,20 @@ void SplitFlapMqtt::publishState(const String &message) {
 void SplitFlapMqtt::loop() {
     mqttClient.loop();
     checkConnection();  // Check and reconnect if needed
+
+    // Process pending message if display is no longer busy
+    if (hasPendingMessage && display && !display->isBusy()) {
+        Serial.printf("[MQTT] Processing queued message: %s\n", pendingMessage.c_str());
+        float maxVel = settings.getFloat("maxVel");
+        display->writeString(pendingMessage, maxVel, false);
+        // Update the web server's state to prevent mode logic from overwriting
+        if (webServer) {
+            webServer->setInputString(pendingMessage);
+            webServer->setWrittenString(pendingMessage);
+        }
+        hasPendingMessage = false;
+        pendingMessage = "";
+    }
 }
 
 void SplitFlapMqtt::checkConnection() {

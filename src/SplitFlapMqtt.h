@@ -49,4 +49,8 @@ class SplitFlapMqtt {
     unsigned long lastReconnectAttempt = 0;
     const unsigned long reconnectInterval = 5000;  // Try reconnecting every 5 seconds
     bool wasConnected = false;                     // Track previous connection state
+
+    // Message queuing for busy display
+    String pendingMessage = "";
+    bool hasPendingMessage = false;
 };
