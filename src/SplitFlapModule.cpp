@@ -52,12 +52,6 @@ void SplitFlapModule::writeIO(uint16_t data) {
             Serial.print(address);
             Serial.print(", error code: ");
             Serial.println(error);
-            // Error codes:
-            // 0 = success
-            // 1 = data too long to fit in transmit buffer
-            // 2 = received NACK on transmit of address
-            // 3 = received NACK on transmit of data
-            // 4 = other error
         }
 
         // Attempt recovery after multiple errors
@@ -65,7 +59,16 @@ void SplitFlapModule::writeIO(uint16_t data) {
             Serial.print("Module ");
             Serial.print(address);
             Serial.println(" has persistent I2C errors, attempting recovery...");
-            delay(2);  // Reduced from 10ms to minimize timing disruption
+            
+            // Try to clear the bus
+            Wire.flush();
+            // Brief delay to let bus settle
+            delayMicroseconds(500);
+            
+            // If we had access to SDA/SCL pins here we could toggle them, 
+            // but for now we'll rely on Wire library's internal recovery if available
+            // and just reset our tracking.
+            
             consecutiveErrors = 0; // Reset counter after recovery attempt
         }
     } else {

@@ -19,34 +19,99 @@
 // Initialization timing
 #define MODULE_INIT_DELAY_MS  100  // Delay between initialization steps
 
+/**
+ * @brief Controls a single split-flap display module.
+ * 
+ * Handles motor control, position tracking, and sensor reading for one character module.
+ * Uses a PCF8575 I/O expander for motor control.
+ */
 class SplitFlapModule {
   public:
-    // Constructor declarationS
+    // Constructor declarations
     SplitFlapModule(); // default constructor required to allocate memory for
     // SplitFlapDisplay class
+    
+    /**
+     * @brief Construct a new Split Flap Module object
+     * 
+     * @param I2Caddress I2C address of the PCF8575
+     * @param stepsPerFullRotation Steps required for a full rotation
+     * @param stepOffset Offset steps from magnet position
+     * @param magnetPos Base magnet position
+     * @param charSetSize Number of characters in the set (37 or 48)
+     */
     SplitFlapModule(uint8_t I2Caddress, int stepsPerFullRotation, int stepOffset, int magnetPos, int charSetSize);
 
+    /**
+     * @brief Initialize the module and energize motor coils.
+     */
     void init();
-    void updateOffset(int newOffset);                        // update the offset dynamically
 
-    void step(bool updatePosition = true);                   // step motor
-    void stop();                                             // write all motor input pins to low
-    void start();                                            // re-energize coils to last position, not stepping motor
-    void wakeUp();                                           // gentle wake-up sequence before any movement
+    /**
+     * @brief Update the step offset dynamically.
+     * 
+     * @param newOffset New offset value in steps
+     */
+    void updateOffset(int newOffset);
+
+    /**
+     * @brief Perform a single motor step.
+     * 
+     * @param updatePosition Whether to update the internal position counter
+     */
+    void step(bool updatePosition = true);
+
+    /**
+     * @brief Stop the motor (de-energize coils).
+     */
+    void stop();
+
+    /**
+     * @brief Start the motor (energize coils to current step).
+     */
+    void start();
+
+    /**
+     * @brief Perform a gentle wake-up sequence to overcome static friction.
+     */
+    void wakeUp();
 
     int getMagnetPosition() const { return magnetPosition; } // position where magnet is detected
-    int getCharPosition(char inputChar);                     // get integer position given single character
+    
+    /**
+     * @brief Get the step position for a specific character.
+     * 
+     * @param inputChar The character to find
+     * @return int Step position of the character
+     */
+    int getCharPosition(char inputChar);
+    
     int getPosition() const { return position; }             // get integer position
     int getCharsetSize() const { return numChars; }          // getter for charset size
 
-    bool readHallEffectSensor();                             // return the value read by the hall effect
-    // sensor
+    /**
+     * @brief Read the Hall effect sensor state.
+     * 
+     * @return true if magnet detected, false otherwise
+     */
+    bool readHallEffectSensor();
+
+    /**
+     * @brief Update position to magnet position (called when magnet detected).
+     */
     void magnetDetected() {
         position = magnetPosition;
-    } // update position to magnetposition, called when magnet is detected
+    }
 
     bool getHasErrored() const { return hasErrored; }
-    bool testI2CConnectivity();                              // test if module responds on I2C bus
+
+    /**
+     * @brief Test if the module responds on the I2C bus.
+     * 
+     * @return true if responsive, false otherwise
+     */
+    bool testI2CConnectivity();
+    
     uint8_t getAddress() const { return address; }           // get I2C address
 
   private:
