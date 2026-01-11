@@ -30,11 +30,11 @@
 #define DEFAULT_TRANSITION_TYPE 0 // 0 = Normal, 1 = Synchronized Landing
 
 #ifndef DEFAULT_MODULE_ADDRESSES
-#define DEFAULT_MODULE_ADDRESSES {0x20, 0x22, 0x25, 0x26, 0x21, 0x23, 0x24, 0x27}
+#define DEFAULT_MODULE_ADDRESSES {0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27}
 #endif
 
 #ifndef DEFAULT_MODULE_OFFSETS
-#define DEFAULT_MODULE_OFFSETS {-27, -20, -22, 0, 5, 45, -30, 0}
+#define DEFAULT_MODULE_OFFSETS {0, 0, 0, 0, 0, 0, 0, 0}
 #endif
 
 // Operational States

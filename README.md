@@ -23,7 +23,7 @@ Firmware for the modular Split Flap Display created by [Morgan Manly](https://gi
 - MQTT Support with automatic reconnection
 - OTA Firmware / Filesystem updating
 
-## Recent Enhancements
+## Recent Enhancements on this fork
 
 - **Motor Timing Improvements**: Enhanced accuracy and consistency
     - Fixed timing inconsistencies in motor control loop
