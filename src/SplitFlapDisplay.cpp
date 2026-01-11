@@ -358,6 +358,43 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
     bool isFinished = checkAllFalse(needsStepping, numModules);
     unsigned long lastWatchdogFeed = millis();
 
+    // Get transition type
+    int transitionType = settings.getInt("transitionType");
+    unsigned long startDelayMicros[numModules];
+    unsigned long movementStartTime = micros();
+
+    if (transitionType == 1) { // Synchronized Landing
+        int maxDistance = 0;
+        int travelDistances[numModules];
+
+        // Calculate travel distances
+        for (int i = 0; i < numModules; i++) {
+            int currentPos = modules[i].getPosition();
+            int targetPos = targetPositions[i];
+            
+            if (targetPos >= currentPos) {
+                travelDistances[i] = targetPos - currentPos;
+            } else {
+                travelDistances[i] = (stepsPerRot - currentPos) + targetPos;
+            }
+            
+            if (travelDistances[i] > maxDistance) {
+                maxDistance = travelDistances[i];
+            }
+        }
+
+        // Calculate start delays
+        for (int i = 0; i < numModules; i++) {
+            // delay = (max steps - my steps) * time per step
+            startDelayMicros[i] = (unsigned long)((maxDistance - travelDistances[i]) * timePerStep);
+        }
+    } else {
+        // Normal mode - no delays
+        for (int i = 0; i < numModules; i++) {
+            startDelayMicros[i] = 0;
+        }
+    }
+
     while (! isFinished) {
         currentTime = micros();
 
@@ -368,7 +405,18 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
             lastWatchdogFeed = millis();
         }
 
+        bool anySteppedOrStarted = false;
+
         for (int i = 0; i < numModules; i++) {
+            // Check synchronization delay
+             if (transitionType == 1) {
+                 if (currentTime - movementStartTime < startDelayMicros[i]) {
+                    continue; // Wait for our synchronized start time
+                 }
+            }
+            
+            anySteppedOrStarted = true;
+
             if (((currentTime - lastStepTimes[i]) > timePerStep) && needsStepping[i]) {
                 modules[i].step();
                 lastStepTimes[i] = currentTime;  // Use consistent time reference
@@ -377,6 +425,10 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
                     needsStepping[i] = false;
                 }
             }
+        }
+        
+        if (!anySteppedOrStarted) {
+            delay(1); 
         }
 
         if ((currentTime - lastSensorCheckTime) > HALL_EFFECT_CHECK_INTERVAL_US) { // check hall effect sensor every checkIntervalMs

@@ -12,6 +12,9 @@ This document describes the enhancements and new features added to the Split-Fla
 4. [Dynamic Offset Updates](#dynamic-offset-updates)
 5. [Automatic Restart on Module Count Change](#automatic-restart-on-module-count-change)
 6. [Watchdog Timer Protection](#watchdog-timer-protection)
+7. [Synchronized Landing Transition](#synchronized-landing-transition)
+8. [Configuration Overrides](#configuration-overrides)
+9. [Time & Date Formatting](#time--date-formatting)
 
 ---
 
@@ -464,6 +467,63 @@ for (int i = 0; i < 5; i++) {
 ```
 
 This ensures even the 500ms delay between homing and moving to blank doesn't cause issues.
+
+---
+
+## Synchronized Landing Transition
+
+### Overview
+A visually pleasing transition effect where modules with shorter travel distances wait to start moving, ensuring that all modules stop arriving at their target character at the exact same moment.
+
+### How to Enable
+1. Go to **Settings**
+2. Change **Transition Style** to **Synchronized Landing**
+3. Save Settings
+
+### Technical Details
+- Calculates travel distance for every module
+- Determines the "longest path" (maximum travel time)
+- Delays shorter paths by `(max_steps - my_steps) * time_per_step`
+- Uses non-blocking delays (`delay(1)` with `yield()`) to prevent watchdog timeouts during long waits
+
+---
+
+## Configuration Overrides
+
+### Overview
+Allows advanced users to customize hardware settings (Module Addresses and Offsets) without modifying the source code directly, preserving these settings across project updates.
+
+### How to Use
+1. Create a file named `platformio_override.ini` in the project root
+2. Add your custom definitions using build flags:
+
+```ini
+[env:esp32_c3]
+build_flags =
+    ${env.build_flags}
+    ; Override Module Addresses
+    -D DEFAULT_MODULE_ADDRESSES="{0x20, 0x21, 0x22}"
+    ; Override Module Offsets
+    -D DEFAULT_MODULE_OFFSETS="{0, 0, 0}"
+```
+
+3. Rebuild and upload the firmware. The system will use your lists instead of the hardcoded defaults.
+
+---
+
+## Time & Date Formatting
+
+### Overview
+Significant improvements have been made to the Time and Date modes to ensure they actually respect the user's settings and handle synchronization states gracefully.
+
+### Key Fixes
+1.  **Configurable Formats**: The display now correctly uses the `timeFormat` and `dateFormat` settings defined in the web interface. 
+    - Fallback: Defaults to `{HH}:{mm}` and `{dd}-{MM}-{yy}` if settings are missing.
+2.  **Format Conversion**: A helper `convertToStrftime` automatically translates user-friendly tokens (like `{HH}`) into standard C++ `strftime` format specifiers.
+3.  **NTP Synchronization Check**: 
+    - Prevents displaying invalid times (e.g., 1970) on boot.
+    - Displays `--:--` until accurate time is received from NTP servers.
+4.  **Immediate Updates**: `TimeMode::enter()` now forces an immediate display update, removing lag when switching modes.
 
 ---
 

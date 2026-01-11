@@ -34,13 +34,16 @@
 #ifndef MQTT_PASS
 #define MQTT_PASS ""
 #endif
+#ifndef OTA_PASS
+#define OTA_PASS DEFAULT_OTA_PASS
+#endif
 
 // clang-format off
 JsonSettings settings = JsonSettings("config", {
     // General Settings
     {"name", JsonSetting(DEFAULT_NAME)},
     {"mdns", JsonSetting(DEFAULT_MDNS)},
-    {"otaPass", JsonSetting(DEFAULT_OTA_PASS)},
+    {"otaPass", JsonSetting(OTA_PASS)},
     {"timezone", JsonSetting(DEFAULT_TIMEZONE)},
     {"dateFormat", JsonSetting(DEFAULT_DATE_FORMAT)},
     {"timeFormat", JsonSetting(DEFAULT_TIME_FORMAT)},
@@ -54,15 +57,16 @@ JsonSettings settings = JsonSettings("config", {
     {"mqtt_pass", JsonSetting(MQTT_PASS)},
     // Hardware Settings
     {"moduleCount", JsonSetting(DEFAULT_MODULE_COUNT)},
-    {"moduleAddresses", JsonSetting({0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27})},
+    {"moduleAddresses", JsonSetting(std::vector<int>DEFAULT_MODULE_ADDRESSES)},
     {"magnetPosition", JsonSetting(DEFAULT_MAGNET_POSITION)},
-    {"moduleOffsets", JsonSetting({0, -30, -20, 0, 0, 0, 0, 0})},
+    {"moduleOffsets", JsonSetting(std::vector<int>DEFAULT_MODULE_OFFSETS)},
     {"displayOffset", JsonSetting(DEFAULT_DISPLAY_OFFSET)},
     {"sdaPin", JsonSetting(DEFAULT_SDA_PIN)},
     {"sclPin", JsonSetting(DEFAULT_SCL_PIN)},
     {"stepsPerRot", JsonSetting(DEFAULT_STEPS_PER_ROT)},
     {"maxVel", JsonSetting(DEFAULT_MAX_VEL)},
     {"charset", JsonSetting(DEFAULT_CHARSET)},
+    {"transitionType", JsonSetting(DEFAULT_TRANSITION_TYPE)},
     // Operational States
     {"mode", JsonSetting(DEFAULT_MODE)}
 });

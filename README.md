@@ -41,6 +41,9 @@ Firmware for the modular Split Flap Display created by [Morgan Manly](https://gi
     - Stepper motor wake-up sequence for consistent performance
     - Watchdog protection for long-running operations
     - Enhanced error recovery with I2C communication tracking
+- **Synchronized Landing**: New transition effect where all flaps stop simultaneously
+- **Configurable Module Settings**: Override module addresses and offsets via `platformio_override.ini`
+- **Time & Date Fixes**: Correctly uses user-defined formats and handles NTP sync states
 - **Code Quality**: Named constants, input validation, and comprehensive error logging
 
 See [ENHANCEMENTS.md](ENHANCEMENTS.md) for detailed documentation.

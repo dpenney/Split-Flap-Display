@@ -1,46 +1,55 @@
 export default () => ({
     settings: {
         mode: 2,
+        transitionType: 0,
         dateFormat: "{ddd} {dd}/{MM}",
         timeFormat: "{HH}:{mm}",
+        moduleCount: 8,
+        moduleAddresses: "",
+        moduleOffsets: "",
     },
     errors: {},
     timezones: {},
+
+    addressList: [],
+    offsetList: [],
 
     get header() {
         return this.settings.name || "Split Flap";
     },
 
-    get addressArray() {
-        return (
-            this.settings.moduleAddresses
-                ?.split(",")
-                .map((s) => s.trim()) || []
-        );
-    },
     setAddress(index, value) {
-        const arr = this.addressArray;
-        arr[index] = value;
-        this.settings.moduleAddresses = arr.join(",");
+        this.addressList[index] = value;
+        // Sync back to settings string
+        this.settings.moduleAddresses = this.addressList
+            .filter((x) => x !== "" && x !== undefined && x !== null)
+            .join(",");
     },
 
-    get offsetArray() {
-        return (
-            this.settings.moduleOffsets?.split(",").map((s) => s.trim()) ||
-            []
-        );
-    },
     setOffset(index, value) {
-        const arr = this.offsetArray;
-        arr[index] = value;
-        this.settings.moduleOffsets = arr.join(",");
+        this.offsetList[index] = value;
+        // Sync back to settings string
+        this.settings.moduleOffsets = this.offsetList
+            .filter((x) => x !== "" && x !== undefined && x !== null)
+            .join(",");
     },
 
     loadSettings() {
+        this.loading.settings = true;
         fetch("/settings")
             .then((res) => res.json())
             .then((data) => {
                 Object.assign(this.settings, data);
+
+                // Manually parse strings to arrays for UI
+                const parseList = (str) => {
+                    if (Array.isArray(str)) return str;
+                    if (!str) return [];
+                    return String(str).split(",").map(s => s.trim());
+                };
+
+                this.addressList = parseList(this.settings.moduleAddresses);
+                this.offsetList = parseList(this.settings.moduleOffsets);
             })
             .catch(() =>
                 this.showDialog("Failed to load settings", "error", true),
@@ -67,7 +76,7 @@ export default () => ({
     },
 
     save() {
-        this.saving = true;
+        this.processing = true;
         this.errors = {};
 
         fetch("/settings", {
@@ -88,7 +97,7 @@ export default () => ({
             .catch(() =>
                 this.showDialog("Failed to save settings.", "error"),
             )
-            .finally(() => (this.saving = false));
+            .finally(() => (this.processing = false));
     },
 
     reset() {
@@ -109,5 +118,66 @@ export default () => ({
                     this.showDialog("Failed to reset settings.", "error");
                 });
         }
+    },
+    testingModule: null,
+    processing: false, // Matches settings.html binding
+
+    updateModuleOffset(index, change) {
+        if (this.testingModule !== null) return;
+
+        // Ensure list exists
+        if (!this.offsetList) this.offsetList = [];
+
+        // Update local state temporarily for UI feedback
+        let currentOffset = parseInt(this.offsetList[index] || 0);
+        let newOffset = currentOffset + change;
+        this.offsetList[index] = newOffset;
+
+        // Sync to settings object to ensure save captures it
+        this.setOffset(index, newOffset);
+
+        // Send to backend
+        fetch(`/api/module/${index}/offset`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ offset: newOffset }),
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.type === 'success') {
+                    // Success feedback
+                } else {
+                    this.showDialog(data.message, "error");
+                    // Revert on failure
+                    this.offsetList[index] = currentOffset;
+                    this.setOffset(index, currentOffset);
+                }
+            })
+            .catch(() => {
+                this.showDialog("Failed to update offset", "error");
+                // Revert on failure
+                this.offsetList[index] = currentOffset;
+                this.setOffset(index, currentOffset);
+            });
+    },
+
+    testModule(index) {
+        if (this.testingModule !== null) return;
+
+        this.testingModule = index;
+
+        fetch(`/api/module/${index}/test`, {
+            method: "POST",
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                this.showDialog(data.message, data.type);
+            })
+            .catch(() => {
+                this.showDialog("Failed to test module", "error");
+            })
+            .finally(() => {
+                this.testingModule = null;
+            });
     },
 });

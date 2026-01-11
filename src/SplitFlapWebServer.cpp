@@ -19,6 +19,7 @@ SplitFlapWebServer::SplitFlapWebServer(JsonSettings &settings)
       multiWordCurrentIndex(0), numMultiWords(0), wifiCheckInterval(1000), connectionMode(0), checkDateInterval(250),
       centering(1), inputString(""), multiInputString(""), writtenString("") {
     lastSwitchMultiTime = millis();
+    lastCheckDateTime = 0;
 }
 
 void SplitFlapWebServer::init() {
