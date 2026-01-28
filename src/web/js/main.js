@@ -2,7 +2,7 @@ import Alpine from "alpinejs";
 import common from "./common.js";
 import settings from "./settings.js";
 import controls from "./controls.js";
-import calibration from "./calibration.js";
+// import calibration from "./calibration.js";
 
 window.Alpine = Alpine;
 
@@ -11,7 +11,7 @@ document.addEventListener("alpine:init", () => {
         ...common(),
         ...settings(),
         ...controls(),
-        ...calibration(),
+        // ...calibration(),
 
         init() {
             this.loadSettings();

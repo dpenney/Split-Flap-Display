@@ -10,6 +10,7 @@
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <time.h>
+#include <vector>
 
 class SplitFlapDisplay; // Forward declaration
 
@@ -106,4 +107,5 @@ class SplitFlapWebServer {
 
     AsyncWebServer server; // Declare server as a class member
     SplitFlapDisplay *display = nullptr; // Pointer to display for offset updates
+    std::vector<String> persistentPaths; // Store path strings to keep them valid
 };

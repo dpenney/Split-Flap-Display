@@ -1,4 +1,7 @@
 export default () => ({
+    init() {
+        console.log("Settings JS v1.1 Loaded - Defensive Patch Active");
+    },
     settings: {
         mode: 2,
         transitionType: 0,
@@ -125,11 +128,19 @@ export default () => ({
     updateModuleOffset(index, change) {
         if (this.testingModule !== null) return;
 
+        console.log("updateModuleOffset called", index, change);
+
         // Ensure list exists
-        if (!this.offsetList) this.offsetList = [];
+        if (!this.offsetList || !Array.isArray(this.offsetList)) {
+            console.log("offsetList missing or invalid, resetting");
+            this.offsetList = [];
+        }
 
         // Update local state temporarily for UI feedback
-        let currentOffset = parseInt(this.offsetList[index] || 0);
+        let val = this.offsetList[index];
+        let currentOffset = parseInt((val === undefined || val === null || val === "") ? 0 : val);
+        console.log("currentOffset", currentOffset);
+
         let newOffset = currentOffset + change;
         this.offsetList[index] = newOffset;
 

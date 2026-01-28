@@ -354,6 +354,9 @@ void SplitFlapWebServer::startMDNS() {
 void SplitFlapWebServer::startWebServer() {
     server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) { request->redirect("/index.html"); });
 
+    // Reserve space to prevent reallocation invalidating pointers
+    persistentPaths.reserve(32);
+
     File root = LittleFS.open("/");
     if (! root || ! root.isDirectory()) {
         Serial.println("Failed to open directory or not a directory");
@@ -363,12 +366,15 @@ void SplitFlapWebServer::startWebServer() {
     File file = root.openNextFile();
     while (file) {
         if (String(file.name()).endsWith(".gz")) {
-            const char *filename = file.name();
-            String tempFilename = (String("/") + String(filename));
+            String filename = file.name();
+            String tempFilename = (String("/") + filename);
             tempFilename.replace(".gz", "");
-            filename = tempFilename.c_str();
+            
+            // Store persistent path to ensure valid pointer
+            persistentPaths.push_back(tempFilename);
 
-            server.serveStatic(filename, LittleFS, filename, "max-age=600");
+            // Serve with no-cache for debugging and immediate updates
+            server.serveStatic(persistentPaths.back().c_str(), LittleFS, persistentPaths.back().c_str(), "no-cache");
         }
         file = root.openNextFile();
     }
@@ -551,7 +557,8 @@ void SplitFlapWebServer::startWebServer() {
     // Test individual module endpoint - using explicit paths for each module
     for (int i = 0; i < 8; i++) {
         String testPath = "/api/module/" + String(i) + "/test";
-        server.on(testPath.c_str(), HTTP_POST, [this, i](AsyncWebServerRequest *request) {
+        persistentPaths.push_back(testPath);
+        server.on(persistentPaths.back().c_str(), HTTP_POST, [this, i](AsyncWebServerRequest *request) {
             JsonDocument response;
 
             if (this->display == nullptr) {
@@ -583,8 +590,9 @@ void SplitFlapWebServer::startWebServer() {
     // Update individual module offset endpoint - using explicit paths for each module
     for (int i = 0; i < 8; i++) {
         String offsetPath = "/api/module/" + String(i) + "/offset";
+        persistentPaths.push_back(offsetPath);
         server.addHandler(new AsyncCallbackJsonWebHandler(
-            offsetPath.c_str(),
+            persistentPaths.back().c_str(),
             [this, i](AsyncWebServerRequest *request, JsonVariant &json) {
             if (request->method() != HTTP_POST) {
                 return request->send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
